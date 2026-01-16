@@ -5,9 +5,9 @@ pub enum CullError {
     #[error("Failed to load image: {0}")]
     ImageLoad(String),
 
-    #[error("Invalid input path")]
-    InvalidPath,
+    #[error("Invalid input path: {0}")]
+    InvalidPath(String),
 
-    #[error("Unsupported image format")]
-    UnsupportedFormat,
+    // #[error("Unsupported image format")]
+    // // UnsupportedFormat,
 }

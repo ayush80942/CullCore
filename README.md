@@ -1,88 +1,211 @@
-# 📸 CullCore
+# 📸 CullCore  
+### High-Performance Photo Culling Engine in Rust
 
-**High-Performance Photo Culling Engine in Rust**
+CullCore is a **fast, explainable, and parallel photo culling engine** written in Rust.  
+It analyzes images using **sharpness, exposure, and perceptual similarity**, groups redundant photos into clusters, and selects the **best image per burst**.
 
-CullCore is a fast, explainable, and parallel photo culling engine written in Rust. It analyzes image quality signals—sharpness, exposure, and similarity—to automatically rank and classify photos as KEEP / MAYBE / REJECT.
+CullCore is built as an **engine-first system**: today a CLI tool, tomorrow an API or desktop integration.
 
-Built with real-world photography workflows in mind.
+---
 
-## ✨ Features
+## ✨ Why CullCore?
 
-* ⚡ Parallel image scoring using Rayon
-* 🔍 Blur detection via Laplacian variance
-* 🌗 Exposure analysis via luminance histogram
-* 🧬 Duplicate detection using perceptual hashing (pHash)
-* 🧠 Explainable weighted scoring (no ML black boxes)
-* 🖥️ Production-grade CLI with configurable threads
-* 📊 Benchmarked performance using Criterion
+Professional photographers often shoot **bursts** of near-identical photos.  
+The real challenge is not detecting duplicates — it's **choosing the best shot**.
 
-## 🧠 How It Works
+CullCore solves this by:
+- Grouping visually similar images into **clusters**
+- Ranking images **by quality**, not similarity
+- Selecting **one clear winner per cluster**
 
-Each image is scored on three normalized signals:
+No machine learning.  
+No black boxes.  
+Just fast, explainable algorithms.
 
-| Signal     | Method                    | Why                              |
-|------------|---------------------------|----------------------------------|
-| Blur       | Laplacian variance        | Detects loss of edge detail      |
-| Exposure   | Luminance histogram       | Penalizes clipped blacks/whites  |
-| Similarity | Perceptual hash (pHash)   | Detects burst duplicates         |
+---
+
+## 🔍 Core Features
+
+- ⚡ **Parallel image processing** using Rayon
+- 🔍 **Blur detection** via Laplacian variance
+- 🌗 **Exposure analysis** via luminance histogram
+- 🧬 **Duplicate detection** using perceptual hashing (pHash)
+- 🧠 **Clustering-based similarity handling** (no double penalties)
+- 🖥️ **Production-grade CLI** with configurable thresholds
+- 📊 **Benchmarked performance** using Criterion
+
+---
+
+## 🧠 How CullCore Works
+
+CullCore follows a **two-phase pipeline**:
+
+### Phase 1 — Similarity (Structure)
+Images are grouped into clusters based on perceptual similarity.
+
+> Similarity defines **redundancy**, not quality.
+
+### Phase 2 — Quality (Decision)
+Within each cluster:
+- Images are ranked by sharpness and exposure
+- The best image is selected
+- Remaining images are penalized as duplicates
+
+---
+
+## 🧮 Scoring Model (v2)
+
+### Quality Score
+```
+quality_score = 
+  0.55 × blur + 
+  0.45 × exposure
+```
+
+### Cluster Factor
+| Role | Factor |
+|----|-------|
+| Best in cluster | 1.0 |
+| Duplicate | 0.25 |
 
 ### Final Score
 ```
-final_score =
-  0.45 × blur +
-  0.35 × exposure +
-  0.20 × similarity
+final_score = 
+  0.70 × quality_score + 
+  0.30 × cluster_factor
 ```
 
 ### Verdicts
+| Score | Verdict |
+|-----|--------|
+| ≥ 0.75 | KEEP |
+| 0.50 – 0.74 | MAYBE |
+| < 0.50 | REJECT |
 
-| Score        | Verdict |
-|--------------|---------|
-| ≥ 0.75       | KEEP    |
-| 0.50–0.74    | MAYBE   |
-| < 0.50       | REJECT  |
+---
 
 ## 🚀 Usage
 ```bash
-cullcore ./images --threads 8 --min-score 0.75 --verbose
+cullcore <IMAGE_DIR> [OPTIONS]
 ```
 
-### CLI Options
+### Example
+```bash
+cullcore /Users/ayush/photos \
+  --threads 8 \
+  --cluster-threshold 0.90 \
+  --min-score 0.75 \
+  --verbose
+```
+
+---
+
+## 🧩 CLI Options
 ```
 ARGS:
-  <INPUT>              Directory containing images
+  <INPUT>                    Directory containing images
 
 OPTIONS:
-  --threads <N>         Limit Rayon worker threads
-  --min-score <FLOAT>   Filter images below this score (default: 0.75)
-  --json <FILE>         Export results as JSON (v2)
-  --verbose             Print processing stats
+  --threads <N>              Limit Rayon worker threads
+  --cluster-threshold <F>    Similarity threshold for clustering (0.0–1.0)
+                             Default: 0.90
+  --min-score <F>            Minimum final score to display
+                             Default: 0.75
+  --json <FILE>              Export results as JSON (planned)
+  --verbose                  Print processing statistics
 ```
+
+---
+
+## 👀 Sample Output
+```
+Cluster #0 (3 images)
+  ⭐ IMG_1023.jpg   final=0.91  KEEP
+    IMG_1024.jpg   final=0.42  REJECT
+    IMG_1025.jpg   final=0.38  REJECT
+
+Cluster #1 (1 image)
+  ⭐ IMG_1031.jpg   final=0.88  KEEP
+```
+
+⭐ = Best image in cluster
+
+---
 
 ## ⚡ Performance
 
 Benchmarked using `criterion` (Release mode):
 
-| Task                    | Result                  |
-|-------------------------|-------------------------|
-| Blur (1MP image)        | ~X ms                   |
-| Exposure (1MP)          | ~Y ms                   |
-| 50 images scoring       | ~Z ms (parallel)        |
+| Task                       | Result           |
+| -------------------------- | ---------------- |
+| Blur detection (1MP image) | ~X ms            |
+| Exposure analysis (1MP)    | ~Y ms            |
+| Full scoring (50 images)   | ~Z ms (parallel) |
 
 CullCore scales linearly per image and parallelizes cleanly across CPU cores.
 
-## 🧱 Architecture
+---
+
+## 🏗 Architecture
 ```
 src/
- ├── cli.rs        # CLI interface (Clap)
- ├── loader.rs     # Image loading & validation
+ ├── cli.rs          # CLI interface (Clap)
+ ├── loader.rs       # Image loading & validation
+ ├── clustering.rs  # Similarity-based clustering
  ├── metrics/
  │    ├── blur.rs
  │    ├── exposure.rs
  │    └── similarity.rs
- ├── scorer.rs    # Parallel scoring engine
- ├── verdict.rs   # KEEP / MAYBE / REJECT logic
+ ├── scorer.rs      # Parallel scoring engine
+ ├── verdict.rs     # KEEP / MAYBE / REJECT logic
+ ├── output.rs      # CLI visualization
  └── main.rs
 ```
 
-Core engine is interface-agnostic → CLI today, Axum API tomorrow.
+### Design Principles
+
+* Engine-first architecture
+* Deterministic & explainable logic
+* Zero shared mutable state
+* Parallelism without locks
+
+---
+
+## 🧠 Why Rust?
+
+* Zero-cost abstractions
+* Memory safety without GC
+* Fearless parallelism
+* Predictable performance for CPU-heavy image pipelines
+
+---
+
+## 🛣 Roadmap (v3)
+
+* Axum-based REST API
+* JSON / CSV exports
+* Smarter cluster optimization (LSH / graph components)
+* Adaptive thresholds per photo set
+* Desktop / TUI visualization
+
+---
+
+## 🎯 Key Insight
+
+> Similarity should define **groups**, not **penalties**.
+> Quality should decide **which image survives**.
+
+CullCore is built around this principle.
+
+---
+
+## 🧑‍💻 Author
+
+Built by **Ayush Aggarwal**
+For Rust Delhi & systems-level Rust exploration.
+
+---
+
+## 📜 License
+
+MIT

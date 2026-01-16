@@ -1,50 +1,55 @@
 use crate::scorer::ImageScore;
 use crate::verdict::Verdict;
-use std::path::Path;
+use std::path::PathBuf;
 
-pub fn print_header() {
-    println!(
-        "{:<30} {:>6} {:>6} {:>9} {:>11} {:>8}",
-        "Image", "Score", "Blur", "Exposure", "Similarity", "Verdict"
-    );
-    println!("{}", "-".repeat(78));
-}
+// pub struct ScoredImage<'a> {
+//     pub path: &'a PathBuf,
+//     pub score: &'a ImageScore,
+//     pub is_best: bool,
+// }
 
-pub fn print_row(path: &Path, score: &ImageScore) {
-    let raw = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("unknown");
+pub fn print_clusters(
+    clusters: &[Vec<usize>],
+    scored: &[ImageScore],
+    paths: &[PathBuf],
+) {
+    for (cid, cluster) in clusters.iter().enumerate() {
+        println!(
+            "\nCluster #{} ({} image{})",
+            cid,
+            cluster.len(),
+            if cluster.len() > 1 { "s" } else { "" }
+        );
 
-    let name = normalize_name(raw, 30);
+        // Find best image index in this cluster
+        let best_idx = cluster
+            .iter()
+            .max_by(|&&a, &&b| {
+                scored[a]
+                    .final_score
+                    .partial_cmp(&scored[b].final_score)
+                    .unwrap()
+            })
+            .unwrap();
 
-    println!(
-        "{:<30} {:>6.2} {:>6.2} {:>9.2} {:>11.2} {:>8}",
-        name,
-        score.final_score,
-        score.blur,
-        score.exposure,
-        score.similarity,
-        verdict_str(score.verdict),
-    );
-}
+        for &idx in cluster {
+            let marker = if idx == *best_idx { "⭐" } else { " " };
+            let verdict = match scored[idx].verdict {
+                Verdict::Keep => "KEEP",
+                Verdict::Maybe => "MAYBE",
+                Verdict::Reject => "REJECT",
+            };
 
-fn normalize_name(name: &str, max: usize) -> String {
-    let cleaned = name
-        .replace(' ', "_")
-        .replace('\u{202f}', "_"); // narrow no-break space (macOS screenshots)
-
-    if cleaned.len() <= max {
-        cleaned
-    } else {
-        format!("{}…", &cleaned[..max - 1])
-    }
-}
-
-fn verdict_str(v: Verdict) -> &'static str {
-    match v {
-        Verdict::Keep => "KEEP",
-        Verdict::Maybe => "MAYBE",
-        Verdict::Reject => "REJECT",
+            println!(
+                "  {} {:<20} final={:.2}  {}",
+                marker,
+                paths[idx]
+                    .file_name()
+                    .unwrap()
+                    .to_string_lossy(),
+                scored[idx].final_score,
+                verdict
+            );
+        }
     }
 }

@@ -1,6 +1,6 @@
-use std::path::{Path, PathBuf};
-use image::{DynamicImage, ImageFormat};
 use crate::error::CullError;
+use image::{DynamicImage, ImageFormat};
+use std::path::{Path, PathBuf};
 
 pub struct LoadedImage {
     pub path: PathBuf,
@@ -8,37 +8,42 @@ pub struct LoadedImage {
 }
 
 pub fn load_images_from_dir(dir: &Path) -> Result<Vec<LoadedImage>, CullError> {
-    if !dir.is_dir() {
-        return Err(CullError::InvalidPath);
+    if !dir.exists() {
+        return Err(CullError::InvalidPath(format!(
+            "Path does not exist: {}",
+            dir.display()
+        )));
     }
+
+    if !dir.is_dir() {
+        return Err(CullError::InvalidPath(format!(
+            "Path is not a directory: {}",
+            dir.display()
+        )));
+    }
+
+    let entries = std::fs::read_dir(dir).map_err(|e| CullError::InvalidPath(e.to_string()))?;
 
     let mut images = Vec::new();
 
-    for entry in std::fs::read_dir(dir).map_err(|_| CullError::InvalidPath)? {
-        let entry = entry.map_err(|_| CullError::InvalidPath)?;
+    for entry in entries {
+        let entry = entry.map_err(|e| CullError::InvalidPath(e.to_string()))?;
         let path = entry.path();
 
         if !is_supported(&path) {
-            return Err(CullError::UnsupportedFormat);
+            continue;
         }
 
-        let img = image::open(&path)
-            .map_err(|e| CullError::ImageLoad(e.to_string()))?;
+        let img = image::open(&path).map_err(|e| CullError::ImageLoad(e.to_string()))?;
 
-        images.push(LoadedImage {
-            path,
-            image: img,
-        });
+        images.push(LoadedImage { path, image: img });
     }
 
     Ok(images)
 }
 
-
 fn is_supported(path: &Path) -> bool {
-    match image::guess_format(
-        &std::fs::read(path).unwrap()
-    ) {
+    match image::guess_format(&std::fs::read(path).unwrap()) {
         Ok(ImageFormat::Jpeg | ImageFormat::Png) => true,
         _ => false,
     }

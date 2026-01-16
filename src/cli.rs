@@ -8,22 +8,22 @@ use std::path::PathBuf;
     about = "High-performance photo culling engine written in Rust"
 )]
 pub struct Cli {
-    /// Directory containing images
     pub input: PathBuf,
 
-    /// Number of worker threads (default: logical cores)
     #[arg(long)]
     pub threads: Option<usize>,
 
-    /// Minimum final score to mark image as KEEP
+    /// Similarity threshold for clustering (0.0–1.0)
+    #[arg(long, default_value_t = 0.90)]
+    pub cluster_threshold: f32,
+
+    /// Minimum final score to show
     #[arg(long, default_value_t = 0.75)]
     pub min_score: f32,
 
-    /// Output results as JSON file
     #[arg(long)]
     pub json: Option<PathBuf>,
 
-    /// Enable verbose logging
     #[arg(long)]
     pub verbose: bool,
 }

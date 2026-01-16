@@ -1,4 +1,5 @@
 mod cli;
+mod clustering;
 mod error;
 mod loader;
 mod metrics;
@@ -9,9 +10,9 @@ mod verdict;
 use clap::Parser;
 use cli::Cli;
 use loader::load_images_from_dir;
-use output::{print_header, print_row};
+use output::print_clusters;
 use rayon::ThreadPoolBuilder;
-use scorer::score_images;
+use scorer::score_images_with_clustering;
 
 fn main() {
     let cli = Cli::parse();
@@ -26,19 +27,15 @@ fn main() {
     let loaded = load_images_from_dir(&cli.input).expect("Failed to load images");
 
     let images: Vec<_> = loaded.iter().map(|i| i.image.clone()).collect();
-    let scores = score_images(&images);
+    let result = score_images_with_clustering(&images, cli.cluster_threshold);
 
-    print_header();
+    print_clusters(
+        &result.clusters,
+        &result.scores,
+        &loaded.iter().map(|i| i.path.clone()).collect::<Vec<_>>(),
+    );
 
-    for (i, s) in scores.iter().enumerate() {
-        if s.final_score < cli.min_score {
-            continue;
-        }
-
-        print_row(&loaded[i].path, s);
-    }
-
-    if cli.verbose {
-        eprintln!("Processed {} images", scores.len());
-    }
+    // if cli.verbose {
+    //     eprintln!("Processed {} images", scores.len());
+    // }
 }
