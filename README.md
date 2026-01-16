@@ -132,20 +132,6 @@ Cluster #1 (1 image)
 
 ---
 
-## ⚡ Performance
-
-Benchmarked using `criterion` (Release mode):
-
-| Task                       | Result           |
-| -------------------------- | ---------------- |
-| Blur detection (1MP image) | ~X ms            |
-| Exposure analysis (1MP)    | ~Y ms            |
-| Full scoring (50 images)   | ~Z ms (parallel) |
-
-CullCore scales linearly per image and parallelizes cleanly across CPU cores.
-
----
-
 ## 🏗 Architecture
 ```
 src/
@@ -187,15 +173,6 @@ src/
 * Smarter cluster optimization (LSH / graph components)
 * Adaptive thresholds per photo set
 * Desktop / TUI visualization
-
----
-
-## 🎯 Key Insight
-
-> Similarity should define **groups**, not **penalties**.
-> Quality should decide **which image survives**.
-
-CullCore is built around this principle.
 
 ---
 
